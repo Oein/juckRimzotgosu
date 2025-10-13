@@ -159,8 +159,9 @@ const gameState = {
   arrows: [] as Arrow[],
   startTime: Date.now(),
   lastArrowTime: 0,
+  lastWasDouble: false,
   lastEightDirectionAttackTime: 0, // 8방위 공격 마지막 시간
-  nextEightDirectionAttackDelay: getRandomEightDirectionAttackDelay(), // 다음 8방위 공격까지 딜레이
+  nextEightDirectionAttackDelay: EIGHT_DIRECTION_ATTACK_MIN_INTERVAL, // 다음 8방위 공격까지 딜레이
   keyStates: {
     up: false,
     down: false,
@@ -256,7 +257,8 @@ function getRandomEightDirectionAttackDelay(): number {
     EIGHT_DIRECTION_ATTACK_MIN_INTERVAL +
     Math.random() *
       (EIGHT_DIRECTION_ATTACK_MAX_INTERVAL -
-        EIGHT_DIRECTION_ATTACK_MIN_INTERVAL)
+        EIGHT_DIRECTION_ATTACK_MIN_INTERVAL) +
+    (gameState.lastWasDouble ? 2000 : 0)
   );
 }
 
@@ -264,6 +266,8 @@ function getRandomEightDirectionAttackDelay(): number {
 function createEightDirectionAttack() {
   const currentTime = Date.now();
   const NOD = Math.random() < 0.2 ? 2 : Math.random() < 0.1 ? 1.5 : 1;
+  if (NOD == 2) gameState.lastWasDouble = true;
+  else gameState.lastWasDouble = false;
   const NODV = NUMBER_OF_DIRECTIONS * NOD;
   // 8개 방향으로 화살 생성 (45도 간격)
   for (let i = 0; i < NODV; i++) {
@@ -405,6 +409,7 @@ function restartGame() {
   gameState.score = 0;
   gameState.startTime = Date.now();
   gameState.lastArrowTime = 0;
+  gameState.lastWasDouble = false;
   gameState.lastEightDirectionAttackTime = Date.now() - 1000;
   gameState.nextEightDirectionAttackDelay =
     getRandomEightDirectionAttackDelay();
@@ -563,7 +568,6 @@ window.addEventListener("keyup", (e) => {
 // 게임 업데이트 함수 (Two.js의 업데이트 루프에 연결)
 two.bind("update", function () {
   if (!gameState.isPlaying) return;
-
   const currentTime = Date.now();
 
   // 화면 흔들림 처리
