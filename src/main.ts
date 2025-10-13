@@ -432,6 +432,12 @@ function restartGame() {
   // 중앙 큰 점수 초기화 및 표시
   bigScoreText.value = "0";
   bigScoreText.visible = true;
+
+  // hide leaderboard
+  const drawer = document.getElementById("leaderboard-drawer") as HTMLElement;
+  if (drawer) {
+    drawer.classList.remove("open");
+  }
 }
 
 // 화면 리사이징 처리 함수
@@ -756,6 +762,7 @@ function initializeLeaderboard() {
 
   // 토글 버튼 클릭 이벤트
   toggleButton.addEventListener("click", () => {
+    if (gameState.isPlaying) return drawer.classList.remove("open");
     drawer.classList.toggle("open");
   });
 
