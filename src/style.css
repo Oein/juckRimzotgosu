@@ -1,0 +1,23 @@
+body {
+  margin: 0px;
+  padding: 0px;
+  overflow: hidden;
+  background-color: #f0f0f0;
+  font-family: Arial, sans-serif;
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+}
+
+/* 게임 시작 시 표시될 안내 */
+.game-instructions {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: #333;
+  font-size: 14px;
+}
