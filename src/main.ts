@@ -802,14 +802,27 @@ function showLeaderboard(scores: [string, number][]) {
     idnx.style.marginRight = "10px";
     idnx.style.textAlign = "right";
     nm.style.flex = "1";
-    scr.style.width = "60px";
     scr.style.textAlign = "right";
+    scr.style.display = "flex";
+    scr.style.justifyContent = "flex-end";
+    scr.style.alignItems = "flex-end";
     listItem.appendChild(idnx);
     listItem.appendChild(nm);
     listItem.appendChild(scr);
     idnx.innerText = `${index + 1}.`;
     nm.innerText = name;
-    scr.innerText = `${Math.floor(score / 20)}점`;
+
+    const scrSpan = document.createElement("span");
+    const scrSpan2 = document.createElement("span");
+    scrSpan.innerText = `${Math.floor(score / 20)}점`;
+    scrSpan2.style.color = "#888888a0";
+    scrSpan2.style.fontSize = "0.8em";
+    scrSpan2.style.fontWeight = "normal";
+    scrSpan2.style.marginLeft = "4px";
+    scrSpan2.innerText = `(${(score / 1000).toFixed(2)}s)`;
+    scr.appendChild(scrSpan);
+    scr.appendChild(scrSpan2);
+
     list.appendChild(listItem);
 
     if (index <= 2) {
