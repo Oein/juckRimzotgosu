@@ -140,10 +140,22 @@ restartText.fill = RESTART_TEXT_COLOR;
 restartText.visible = false;
 two.add(restartText);
 
+const saveText = new Two.Text(
+  "점수를 저장하려면 I키를 누르세요",
+  centerX,
+  centerY + RESTART_TEXT_Y_OFFSET + 30
+);
+saveText.size = RESTART_TEXT_SIZE;
+saveText.fill = RESTART_TEXT_COLOR;
+saveText.visible = false;
+two.add(saveText);
+
 // 게임 상태
 const gameState = {
   isPlaying: true,
   score: ARROW_SPAWN_RATE,
+  timeMS: 0,
+  scoreSaved: false,
   arrows: [] as Arrow[],
   startTime: Date.now(),
   lastArrowTime: 0,
@@ -168,6 +180,75 @@ const gameState = {
     offsetY: 0,
   },
 };
+
+class OnKV {
+  skv = "wk2b877b";
+  get__(key: string) {
+    return fetch(
+      `https://keyvalue.immanuel.co/api/KeyVal/GetValue/${this.skv}/${key}`
+    )
+      .then((res) => res.text())
+      .then((res) => JSON.parse(res));
+  }
+  set__(key: string, value: any) {
+    return fetch(
+      `https://keyvalue.immanuel.co/api/KeyVal/UpdateValue/${this.skv}/${key}/${value}`,
+      {
+        method: "POST",
+      }
+    );
+  }
+  async get(
+    key: string,
+    progressSender?: (now: number, total: number) => void
+  ) {
+    // it has 60 chars limit
+    // so it should be saved as parts
+    const parts = await this.get__(key + "_l").then((res) => {
+      const length = parseInt(res, 10);
+      const parts = [];
+      for (let i = 0; i < length; i++) {
+        parts.push(
+          new Promise<any>((resolve) => {
+            this.get__(key + "_" + i).then((res) => {
+              resolve(res);
+              if (progressSender) progressSender(i + 1, length);
+            });
+          })
+        );
+      }
+      console.log(res, length, parts);
+      return Promise.all(parts);
+    });
+    console.log(parts.join(""), parts);
+    return JSON.parse(decodeURIComponent(atob(parts.join(""))));
+  }
+  async set(
+    key: string,
+    value: any,
+    progressSender?: (now: number, total: number) => void
+  ) {
+    const toSave = btoa(encodeURIComponent(JSON.stringify(value)));
+    const parts = [];
+    const SPILIT_BY = 50;
+    for (let i = 0; i < toSave.length; i += SPILIT_BY) {
+      parts.push(toSave.substring(i, i + SPILIT_BY));
+    }
+    console.log("Saving of", key, "in", parts.length, "parts");
+    await this.set__(key + "_l", parts.length);
+    let sent = 0;
+    await Promise.all(
+      parts.map((part, i) => {
+        this.set__(key + "_" + i, part);
+        sent++;
+        if (progressSender) progressSender(sent, parts.length);
+        console.log("Saved part of", key, i + 1, " / ", parts.length);
+      })
+    );
+  }
+}
+const kv = new OnKV();
+(window as any).kv = kv;
 
 // 랜덤 8방위 공격 딜레이 생성
 function getRandomEightDirectionAttackDelay(): number {
@@ -277,6 +358,7 @@ function gameOver() {
 
   // 점수 계산 (살아남은 ms / 2 기준)
   const survivalTimeMs = Date.now() - gameState.startTime;
+  gameState.timeMS = survivalTimeMs;
   gameState.score = Math.floor(survivalTimeMs / 20);
 
   // 생존 시간 계산
@@ -292,6 +374,7 @@ function gameOver() {
   finalScoreText.value = `점수: ${gameState.score}점 (생존 시간: ${timeString})`;
   finalScoreText.visible = true;
   restartText.visible = true;
+  saveText.visible = true;
 
   // 중앙 큰 점수 숨기기
   bigScoreText.visible = false;
@@ -317,6 +400,7 @@ function startScreenShake() {
 // 게임 재시작
 function restartGame() {
   startScreenShake();
+  gameState.scoreSaved = false;
   gameState.isPlaying = true;
   gameState.score = 0;
   gameState.startTime = Date.now();
@@ -340,6 +424,7 @@ function restartGame() {
   gameOverText.visible = false;
   finalScoreText.visible = false;
   restartText.visible = false;
+  saveText.visible = false;
 
   // 시간 초기화
   timeText.value = "시간: 0초";
@@ -406,6 +491,8 @@ function handleResize() {
   finalScoreText.position.y = newCenterY + FINAL_SCORE_TEXT_Y_OFFSET;
   restartText.position.x = newCenterX;
   restartText.position.y = newCenterY + RESTART_TEXT_Y_OFFSET;
+  saveText.position.x = newCenterX;
+  saveText.position.y = newCenterY + RESTART_TEXT_Y_OFFSET + 30;
 }
 
 // 화면 리사이징 이벤트 리스너
@@ -458,6 +545,11 @@ window.addEventListener("keyup", (e) => {
     case "d":
     case "arrowright":
       gameState.keyStates.right = false;
+      break;
+    case "i": // I키: 점수 저장
+      if (!gameState.isPlaying) {
+        saveScore();
+      }
       break;
   }
 });
@@ -606,5 +698,167 @@ two.bind("update", function () {
   }
 });
 
-// 게임 시작
+class NotificationManager {
+  container: HTMLElement;
+  constructor() {
+    this.container = document.createElement("div");
+    this.container.style.position = "fixed";
+    this.container.style.bottom = "20px";
+    this.container.style.right = "20px";
+    this.container.style.zIndex = "1000";
+    document.body.appendChild(this.container);
+  }
+
+  show(message: string, duration = 3000) {
+    const notification = document.createElement("div");
+    notification.innerText = message;
+    notification.style.background = "rgba(0, 0, 0, 0.7)";
+    notification.style.color = "white";
+    notification.style.padding = "10px 20px";
+    notification.style.marginTop = "10px";
+    notification.style.borderRadius = "5px";
+    notification.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+    notification.style.opacity = "0";
+    notification.style.transform = "translateY(10px)";
+    notification.style.minWidth = "200px";
+    notification.style.maxHeight = "0px";
+    notification.style.transition = "all 0.3s ease";
+
+    this.container.appendChild(notification);
+
+    // Fade in
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        notification.style.opacity = "1";
+        notification.style.transform = "translateY(0)";
+        notification.style.maxHeight = "calc(1.2em + 20px)";
+      });
+    }, 10);
+
+    // Fade out and remove after duration
+    setTimeout(() => {
+      notification.style.opacity = "0";
+      notification.style.transform = "translateX(10px)";
+      notification.addEventListener("transitionend", () => {
+        notification.remove();
+      });
+    }, duration);
+  }
+}
+
+const notifier = new NotificationManager();
+(window as any).notifier = notifier;
+
+// 리더보드 드로어 초기화 및 제어
+function initializeLeaderboard() {
+  const drawer = document.getElementById("leaderboard-drawer") as HTMLElement;
+  const toggleButton = document.getElementById("drawer-toggle") as HTMLElement;
+
+  // 토글 버튼 클릭 이벤트
+  toggleButton.addEventListener("click", () => {
+    drawer.classList.toggle("open");
+  });
+
+  // ESC 키로 드로어 닫기
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && drawer.classList.contains("open")) {
+      drawer.classList.remove("open");
+    }
+  });
+}
+
+function showLeaderboard(scores: [string, number][]) {
+  const list = document.getElementById("leaderboard-list") as HTMLElement;
+  list.innerHTML = ""; // 기존 내용 지우기
+
+  console.log("Showing leaderboard:", scores);
+  if (scores.length === 0) {
+    const noDataItem = document.createElement("li");
+    noDataItem.innerText = "저장된 점수가 없습니다.";
+    list.appendChild(noDataItem);
+    return;
+  }
+
+  scores.forEach(([name, score], index) => {
+    const listItem = document.createElement("li");
+    listItem.innerText = `${index + 1}. ${name} - ${Math.floor(score / 20)}점`;
+    list.appendChild(listItem);
+  });
+}
+
+async function fetchLeaderboard() {
+  notifier.show("리더보드 불러오는중...");
+  const lb: [string, number][] = await kv.get("l", (now, total) => {
+    notifier.show(`리더보드 불러오는중... ${now} / ${total}`, 500);
+  });
+  console.log("Fetched leaderboard:", lb);
+  showLeaderboard(lb);
+  notifier.show("리더보드를 불러왔습니다!");
+}
+
+async function saveScore() {
+  if (gameState.isPlaying)
+    return notifier.show("게임 중에는 점수를 저장할 수 없습니다.");
+  if (gameState.score <= 0)
+    return notifier.show("점수가 0점 이하일 때는 저장할 수 없습니다.");
+  if (gameState.scoreSaved) return notifier.show("이미 점수를 저장했습니다.");
+  gameState.scoreSaved = true;
+  const score = gameState.timeMS;
+  if (score <= 0) return;
+  const cf = confirm(`점수 ${Math.floor(score / 20)}점을 저장하시겠습니까?`);
+  if (!cf) return;
+  const namePrompt = () => {
+    // allow only english in lowercase, numbers, _, -
+    const name = prompt(
+      "이름을 입력하세요 (영어 소문자, 숫자, _, - 만 가능, 최대 10자)"
+    );
+    if (!name) return null;
+    if (name.length > 10) {
+      alert("이름이 너무 깁니다. 최대 10자까지 가능합니다.");
+      return namePrompt();
+    }
+    if (!/^[a-z0-9_-]+$/.test(name)) {
+      alert("이름에 허용되지 않는 문자가 포함되어 있습니다.");
+      return namePrompt();
+    }
+    return name;
+  };
+  const name = namePrompt();
+  if (!name) return;
+
+  console.log("Saving score:", score, name);
+  notifier.show("리더보드 가저오는중...");
+  let lb: [string, number][] = await kv.get("l", (now, total) => {
+    notifier.show(`리더보드 불러오는중... ${now} / ${total}`, 100);
+  });
+  if (lb.length < 10) {
+    lb.push([name, score]);
+    lb = lb.sort((a, b) => b[1] - a[1]);
+    notifier.show("리더보드 저장중...");
+    showLeaderboard(lb);
+    await kv.set("l", lb, (now, total) => {
+      notifier.show(`리더보드 저장중... ${now} / ${total}`, 500);
+    });
+    notifier.show("점수가 저장되었습니다!");
+    return;
+  }
+  if (lb[lb.length - 1][1] >= score) {
+    notifier.show("점수가 리더보드에 들지 못했습니다.");
+    return;
+  }
+  lb.push([name, score]);
+  lb = lb.sort((a, b) => b[1] - a[1]);
+  while (lb.length > 10) lb.pop();
+  console.log("New leaderboard:", lb);
+  notifier.show("리더보드 저장중...");
+  await kv.set("l", lb, (now, total) => {
+    notifier.show(`리더보드 저장중... ${now} / ${total}`, 500);
+  });
+  notifier.show("점수가 저장되었습니다!");
+  showLeaderboard(lb);
+}
+
+// 리더보드 초기화 및 게임 시작
+initializeLeaderboard();
 restartGame();
+fetchLeaderboard();
