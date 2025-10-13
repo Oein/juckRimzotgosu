@@ -780,16 +780,57 @@ function showLeaderboard(scores: [string, number][]) {
 
   console.log("Showing leaderboard:", scores);
   if (scores.length === 0) {
-    const noDataItem = document.createElement("li");
+    const noDataItem = document.createElement("div");
     noDataItem.innerText = "저장된 점수가 없습니다.";
+    noDataItem.style.textAlign = "center";
     list.appendChild(noDataItem);
     return;
   }
 
   scores.forEach(([name, score], index) => {
-    const listItem = document.createElement("li");
-    listItem.innerText = `${index + 1}. ${name} - ${Math.floor(score / 20)}점`;
+    const listItem = document.createElement("div");
+    const idnx = document.createElement("div");
+    const nm = document.createElement("div");
+    const scr = document.createElement("div");
+    listItem.style.display = "flex";
+    listItem.style.padding = "8px 0px";
+    listItem.style.borderBottom = "1px solid #eee";
+    if (index == scores.length - 1) {
+      listItem.style.borderBottom = "none";
+    }
+    idnx.style.width = "2rem";
+    idnx.style.marginRight = "10px";
+    idnx.style.textAlign = "right";
+    nm.style.flex = "1";
+    scr.style.width = "60px";
+    scr.style.textAlign = "right";
+    listItem.appendChild(idnx);
+    listItem.appendChild(nm);
+    listItem.appendChild(scr);
+    idnx.innerText = `${index + 1}.`;
+    nm.innerText = name;
+    scr.innerText = `${Math.floor(score / 20)}점`;
     list.appendChild(listItem);
+
+    if (index <= 2) {
+      idnx.style.fontWeight = "bold";
+      nm.style.fontWeight = "bold";
+      scr.style.fontWeight = "bold";
+    }
+
+    if (index === 0) {
+      idnx.innerText = "🥇";
+      nm.style.color = "#ffb400";
+      scr.style.color = "#ffb400";
+    } else if (index === 1) {
+      idnx.innerText = "🥈";
+      nm.style.color = "#c0c0c0";
+      scr.style.color = "#c0c0c0";
+    } else if (index === 2) {
+      idnx.innerText = "🥉";
+      nm.style.color = "#cd7f32";
+      scr.style.color = "#cd7f32";
+    }
   });
 }
 
