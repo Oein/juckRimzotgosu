@@ -47,7 +47,7 @@ const RESTART_TEXT_Y_OFFSET = 60; // px
 const BOUNDARY_LINE_WIDTH = 3; // px
 
 // 색상 관련 상수
-const BACKGROUND_COLOR = "#f0f0f0";
+// const BACKGROUND_COLOR = "#f0f0f0";
 const BORDER_COLOR = "#333333";
 const PLAYER_COLOR = "#2288dd";
 const ARROW_COLOR = "#e82c2c";
