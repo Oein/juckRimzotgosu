@@ -6,9 +6,9 @@ import Two from "two.js";
 // 시간 관련 상수
 const ARROW_SPAWN_RATE = 300; // ms
 const ARROW_SPAWN_RATE_VARIATION = 10; // ms
-const ARROW_LIFETIME = 5000; // ms
-const EIGHT_DIRECTION_ATTACK_MIN_INTERVAL = 2000; // ms
-const EIGHT_DIRECTION_ATTACK_MAX_INTERVAL = 4000; // ms
+const ARROW_LIFETIME = 8000; // ms
+const EIGHT_DIRECTION_ATTACK_MIN_INTERVAL = 3000; // ms
+const EIGHT_DIRECTION_ATTACK_MAX_INTERVAL = 3000; // ms
 
 // 화면 흔들림 상수
 const SHAKE_DURATION = 500; // 0.5초 동안 흔들림
@@ -18,11 +18,11 @@ const SHAKE_DECREASE_FACTOR = 0.85; // 흔들림 감소 계수
 // 크기 관련 상수
 const FIXED_BOUNDARY_RADIUS = 300; // px
 const PLAYER_RADIUS = 10; // px
-const REGULAR_ARROW_SIZE = 12; // px
-const EIGHT_DIRECTION_ARROW_SIZE = 8; // px
+const REGULAR_ARROW_SIZE = 14; // px
+const EIGHT_DIRECTION_ARROW_SIZE = 12; // px
 const BOUNDARY_OUTSIDE_FACTOR = 1.2; // 경계 바깥에서 시작하는 비율
 const BOUNDARY_CLEANUP_FACTOR = 1.5; // 경계 바깥으로 나간 화살을 제거하는 비율
-const ARROW_COLLISION_PADDING = 5; // 충돌 감지 시 추가 여백
+const ARROW_COLLISION_PADDING = 10; // 충돌 감지 시 추가 여백
 
 // 방향 관련 상수
 const NUMBER_OF_DIRECTIONS = 8; // 8방향 화살 공격에서 사용하는 방향 수
@@ -30,7 +30,7 @@ const NUMBER_OF_DIRECTIONS = 8; // 8방향 화살 공격에서 사용하는 방�
 // 이동 관련 상수
 const PLAYER_MOVE_SPEED = 4.25; // px per frame
 const ARROW_SPEED = 5; // px per frame
-const EIGHT_DIRECTION_ARROW_SPEED = 2.5; // px per frame
+const EIGHT_DIRECTION_ARROW_SPEED = 3; // px per frame
 const DIAGONAL_MOVEMENT_FACTOR = 0.7071; // √2/2, 대각선 이동 시 속도 조정
 
 // 화면 요소 관련 상수
@@ -50,8 +50,8 @@ const BOUNDARY_LINE_WIDTH = 3; // px
 // const BACKGROUND_COLOR = "#f0f0f0";
 const BORDER_COLOR = "#333333";
 const PLAYER_COLOR = "#2288dd";
-const ARROW_COLOR = "#e82c2c";
-const EIGHT_DIRECTION_ARROW_COLOR = "#ff4500";
+const ARROW_COLOR = "#52e82cff";
+const EIGHT_DIRECTION_ARROW_COLOR = "#ff0000ff";
 const SCORE_TEXT_COLOR = "#333";
 const BIG_SCORE_COLOR = "rgba(100, 100, 100, 0.2)";
 const GAMEOVER_TEXT_COLOR = "#e82c2c";
@@ -182,9 +182,11 @@ function getRandomEightDirectionAttackDelay(): number {
 // 8방위에서 동시에 화살 생성하기
 function createEightDirectionAttack() {
   const currentTime = Date.now();
+  const NOD = Math.random() < 0.2 ? 2 : Math.random() < 0.1 ? 1.5 : 1;
+  const NODV = NUMBER_OF_DIRECTIONS * NOD;
   // 8개 방향으로 화살 생성 (45도 간격)
-  for (let i = 0; i < NUMBER_OF_DIRECTIONS; i++) {
-    const angle = (i * Math.PI) / (NUMBER_OF_DIRECTIONS / 2); // 0, 45, 90, 135, 180, 225, 270, 315도
+  for (let i = 0; i < NODV; i++) {
+    const angle = (i * Math.PI) / (NODV / 2); // 0, 45, 90, 135, 180, 225, 270, 315도
     const startDistance = FIXED_BOUNDARY_RADIUS * BOUNDARY_OUTSIDE_FACTOR;
 
     const startX = centerX + Math.cos(angle) * startDistance;
@@ -195,7 +197,8 @@ function createEightDirectionAttack() {
     const dirY = player.position.y - startY;
     const distance = Math.sqrt(dirX * dirX + dirY * dirY);
 
-    const rnd = Math.random() * 0.4 + 0.8; // 속도에 약간의 랜덤성 추가 (0.8 ~ 1.2배)
+    const rnd =
+      NOD == 1 ? Math.random() * 0.4 + 0.8 : Math.random() * 0.4 + 0.2; // 속도에 약간의 랜덤성 추가 (0.8 ~ 1.2배)
     const velocityX = (dirX / distance) * EIGHT_DIRECTION_ARROW_SPEED * rnd;
     const velocityY = (dirY / distance) * EIGHT_DIRECTION_ARROW_SPEED * rnd;
 
@@ -239,7 +242,7 @@ function createArrow(): Arrow {
   const dirY = centerY - startY;
   const distance = Math.sqrt(dirX * dirX + dirY * dirY);
 
-  const rnd = Math.random() * 0.4 + 0.8; // 속도에 약간의 랜덤성 추가 (0.8 ~ 1.2배)
+  const rnd = Math.random() * 0.6 + 0.8; // 속도에 약간의 랜덤성 추가 (0.8 ~ 1.4배)
   const velocityX = (dirX / distance) * ARROW_SPEED * rnd;
   const velocityY = (dirY / distance) * ARROW_SPEED * rnd;
 
@@ -313,11 +316,12 @@ function startScreenShake() {
 
 // 게임 재시작
 function restartGame() {
+  startScreenShake();
   gameState.isPlaying = true;
   gameState.score = 0;
   gameState.startTime = Date.now();
   gameState.lastArrowTime = 0;
-  gameState.lastEightDirectionAttackTime = Date.now() + 2000;
+  gameState.lastEightDirectionAttackTime = Date.now() - 1000;
   gameState.nextEightDirectionAttackDelay =
     getRandomEightDirectionAttackDelay();
 
@@ -536,6 +540,7 @@ two.bind("update", function () {
     currentTime - gameState.lastEightDirectionAttackTime >
     gameState.nextEightDirectionAttackDelay
   ) {
+    startScreenShake();
     createEightDirectionAttack();
   }
 
@@ -596,7 +601,7 @@ two.bind("update", function () {
     // 난이도 증가 (시간이 지날수록 화살 더 자주 생성)
     config.arrowSpawnRate = Math.max(
       100,
-      ARROW_SPAWN_RATE - survivalTimeSec * 5
+      ARROW_SPAWN_RATE - (survivalTimeMs / 1000) * 15
     );
   }
 });
