@@ -704,6 +704,14 @@ two.bind("update", function () {
   }
 });
 
+// on blur
+window.addEventListener("blur", () => {
+  if (gameState.isPlaying) {
+    gameOver();
+    alert("창 포커스가 해제되어 게임이 종료되었습니다.");
+  }
+});
+
 class NotificationManager {
   container: HTMLElement;
   constructor() {
