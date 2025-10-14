@@ -2,6 +2,9 @@ import type { Path } from "two.js/src/path";
 import "./style.css";
 import Two from "two.js";
 
+let playerName: string | null = null;
+let lastFetchedLSCR: number | null = null;
+
 // 전역 게임 상수 정의
 // 시간 관련 상수
 const ARROW_SPAWN_RATE = 300; // ms
@@ -391,6 +394,15 @@ function gameOver() {
     }
   });
   gameState.arrows = [];
+
+  if (
+    playerName != null &&
+    lastFetchedLSCR != null &&
+    lastFetchedLSCR < gameState.tick
+  ) {
+    notifier.show("자동저장 시도중...");
+    saveScore();
+  }
 }
 
 // 화면 흔들기 함수
@@ -870,6 +882,7 @@ async function fetchLeaderboard() {
   });
   console.log("Fetched leaderboard:", lb);
   showLeaderboard(lb);
+  lastFetchedLSCR = lb[lb.length - 1][2];
   notifier.show("리더보드를 불러왔습니다!");
 }
 
@@ -886,6 +899,7 @@ async function saveScore() {
   const cf = confirm(`점수 ${score}점을 저장하시겠습니까?`);
   if (!cf) return;
   const namePrompt = () => {
+    if (playerName != null) return playerName;
     // allow only english in lowercase, numbers, _, -
     const name = prompt(
       "이름을 입력하세요 (영어 소문자, 숫자, _, - 만 가능, 최대 10자)"
@@ -903,6 +917,7 @@ async function saveScore() {
   };
   const name = namePrompt();
   if (!name) return;
+  playerName = name;
 
   console.log("Saving score:", score, time, name);
   notifier.show("리더보드 가저오는중...");
@@ -920,6 +935,7 @@ async function saveScore() {
     notifier.show("점수가 저장되었습니다!");
     return;
   }
+  lastFetchedLSCR = lb[lb.length - 1][2];
   if (lb[lb.length - 1][2] >= score) {
     notifier.show("점수가 리더보드에 들지 못했습니다.");
     return;
