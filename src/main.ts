@@ -10,7 +10,7 @@ const SUPER_HARD_MODE =
 
 // 전역 게임 상수 정의
 // 시간 관련 상수
-const ARROW_SPAWN_RATE = 300; // ms
+const ARROW_SPAWN_RATE = SUPER_HARD_MODE ? 175 : 300; // ms
 const ARROW_SPAWN_RATE_VARIATION = 10; // ms
 const ARROW_LIFETIME = 8000; // ms
 const EIGHT_DIRECTION_ATTACK_MIN_INTERVAL = SUPER_HARD_MODE ? 2000 : 3000; // ms
@@ -452,7 +452,7 @@ function restartGame() {
   timeText.value =
     "시간: 0초" +
     (playerName == null ? "" : ` (${playerName})`) +
-    (SUPER_HARD_MODE ? " (좆고수 모드)" : "");
+    (SUPER_HARD_MODE ? " (좆고수 모드2)" : "");
 
   // 중앙 큰 점수 초기화 및 표시
   bigScoreText.value = "0";
@@ -718,7 +718,7 @@ function tick() {
     timeText.value =
       `시간: ${minutes > 0 ? `${minutes}분 ` : ""}${seconds.toFixed(2)}초` +
       (playerName == null ? "" : ` (${playerName})`) +
-      (SUPER_HARD_MODE ? " (좆고수 모드)" : "");
+      (SUPER_HARD_MODE ? " (좆고수 모드2)" : "");
 
     // 중앙 큰 점수 텍스트 업데이트
     bigScoreText.value = `${gameState.tick}`;
