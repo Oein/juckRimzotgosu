@@ -449,7 +449,10 @@ function restartGame() {
   saveText.visible = false;
 
   // 시간 초기화
-  timeText.value = "시간: 0초" + (playerName == null ? "" : ` (${playerName})`);
+  timeText.value =
+    "시간: 0초" +
+    (playerName == null ? "" : ` (${playerName})`) +
+    (SUPER_HARD_MODE ? " (좆고수 모드)" : "");
 
   // 중앙 큰 점수 초기화 및 표시
   bigScoreText.value = "0";
@@ -714,7 +717,8 @@ function tick() {
     // 상단 시간 텍스트 업데이트
     timeText.value =
       `시간: ${minutes > 0 ? `${minutes}분 ` : ""}${seconds.toFixed(2)}초` +
-      (playerName == null ? "" : ` (${playerName})`);
+      (playerName == null ? "" : ` (${playerName})`) +
+      (SUPER_HARD_MODE ? " (좆고수 모드)" : "");
 
     // 중앙 큰 점수 텍스트 업데이트
     bigScoreText.value = `${gameState.tick}`;
@@ -722,7 +726,7 @@ function tick() {
     // 난이도 증가 (시간이 지날수록 화살 더 자주 생성)
     config.arrowSpawnRate = Math.max(
       SUPER_HARD_MODE ? 35 : 100,
-      ARROW_SPAWN_RATE - (survivalTimeMs / 1000) * (SUPER_HARD_MODE ? 23 : 15)
+      ARROW_SPAWN_RATE - (survivalTimeMs / 1000) * (SUPER_HARD_MODE ? 25 : 15)
     );
   }
 }
