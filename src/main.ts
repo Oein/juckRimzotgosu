@@ -28,9 +28,9 @@ const ARROW_COLLISION_PADDING = 10; // 충돌 감지 시 추가 여백
 const NUMBER_OF_DIRECTIONS = 8; // 8방향 화살 공격에서 사용하는 방향 수
 
 // 이동 관련 상수
-const PLAYER_MOVE_SPEED = 4.25; // px per frame
-const ARROW_SPEED = 5; // px per frame
-const EIGHT_DIRECTION_ARROW_SPEED = 3; // px per frame
+const PLAYER_MOVE_SPEED = 4.25 * 2; // px per frame
+const ARROW_SPEED = 5 * 2; // px per frame
+const EIGHT_DIRECTION_ARROW_SPEED = 3 * 2; // px per frame
 const DIAGONAL_MOVEMENT_FACTOR = 0.7071; // √2/2, 대각선 이동 시 속도 조정
 
 // 화면 요소 관련 상수
@@ -156,6 +156,7 @@ const gameState = {
   score: ARROW_SPAWN_RATE,
   timeMS: 0,
   scoreSaved: false,
+  tick: 0,
   arrows: [] as Arrow[],
   startTime: Date.now(),
   lastArrowTime: 0,
@@ -407,6 +408,7 @@ function restartGame() {
   gameState.scoreSaved = false;
   gameState.isPlaying = true;
   gameState.score = 0;
+  gameState.tick = 0;
   gameState.startTime = Date.now();
   gameState.lastArrowTime = 0;
   gameState.lastWasDouble = false;
@@ -566,9 +568,10 @@ window.addEventListener("keyup", (e) => {
 });
 
 // 게임 업데이트 함수 (Two.js의 업데이트 루프에 연결)
-two.bind("update", function () {
+function tick() {
   if (!gameState.isPlaying) return;
   const currentTime = Date.now();
+  gameState.tick++;
 
   // 화면 흔들림 처리
   let shakeOffsetX = 0;
@@ -698,7 +701,7 @@ two.bind("update", function () {
     }${seconds.toFixed(2)}초`;
 
     // 중앙 큰 점수 텍스트 업데이트
-    bigScoreText.value = `${gameState.score}`;
+    bigScoreText.value = `${gameState.tick}`;
 
     // 난이도 증가 (시간이 지날수록 화살 더 자주 생성)
     config.arrowSpawnRate = Math.max(
@@ -706,7 +709,7 @@ two.bind("update", function () {
       ARROW_SPAWN_RATE - (survivalTimeMs / 1000) * 15
     );
   }
-});
+}
 
 // on blur
 window.addEventListener("blur", () => {
@@ -786,7 +789,7 @@ function initializeLeaderboard() {
   });
 }
 
-function showLeaderboard(scores: [string, number][]) {
+function showLeaderboard(scores: [string, number, number][]) {
   const list = document.getElementById("leaderboard-list") as HTMLElement;
   list.innerHTML = ""; // 기존 내용 지우기
 
@@ -799,7 +802,7 @@ function showLeaderboard(scores: [string, number][]) {
     return;
   }
 
-  scores.forEach(([name, score], index) => {
+  scores.forEach(([name, time, score], index) => {
     const listItem = document.createElement("div");
     const idnx = document.createElement("div");
     const nm = document.createElement("div");
@@ -826,12 +829,12 @@ function showLeaderboard(scores: [string, number][]) {
 
     const scrSpan = document.createElement("span");
     const scrSpan2 = document.createElement("span");
-    scrSpan.innerText = `${Math.floor(score / 20)}점`;
+    scrSpan.innerText = `${Math.floor(score)}점`;
     scrSpan2.style.color = "#888888a0";
     scrSpan2.style.fontSize = "0.8em";
     scrSpan2.style.fontWeight = "normal";
     scrSpan2.style.marginLeft = "4px";
-    scrSpan2.innerText = `(${(score / 1000).toFixed(2)}s)`;
+    scrSpan2.innerText = `(${(time / 1000).toFixed(2)}s)`;
     scr.appendChild(scrSpan);
     scr.appendChild(scrSpan2);
 
@@ -861,7 +864,7 @@ function showLeaderboard(scores: [string, number][]) {
 
 async function fetchLeaderboard() {
   notifier.show("리더보드 불러오는중...");
-  const lb: [string, number][] = await kv.get("l", (now, total) => {
+  const lb: [string, number, number][] = await kv.get("l", (now, total) => {
     notifier.show(`리더보드 불러오는중... ${now} / ${total}`, 500);
   });
   console.log("Fetched leaderboard:", lb);
@@ -876,9 +879,10 @@ async function saveScore() {
     return notifier.show("점수가 0점 이하일 때는 저장할 수 없습니다.");
   if (gameState.scoreSaved) return notifier.show("이미 점수를 저장했습니다.");
   gameState.scoreSaved = true;
-  const score = gameState.timeMS;
+  const score = gameState.tick;
+  const time = gameState.timeMS;
   if (score <= 0) return;
-  const cf = confirm(`점수 ${Math.floor(score / 20)}점을 저장하시겠습니까?`);
+  const cf = confirm(`점수 ${score}점을 저장하시겠습니까?`);
   if (!cf) return;
   const namePrompt = () => {
     // allow only english in lowercase, numbers, _, -
@@ -899,14 +903,14 @@ async function saveScore() {
   const name = namePrompt();
   if (!name) return;
 
-  console.log("Saving score:", score, name);
+  console.log("Saving score:", score, time, name);
   notifier.show("리더보드 가저오는중...");
-  let lb: [string, number][] = await kv.get("l", (now, total) => {
+  let lb: [string, number, number][] = await kv.get("l", (now, total) => {
     notifier.show(`리더보드 불러오는중... ${now} / ${total}`, 100);
   });
   if (lb.length < 10) {
-    lb.push([name, score]);
-    lb = lb.sort((a, b) => b[1] - a[1]);
+    lb.push([name, time, score]);
+    lb = lb.sort((a, b) => b[2] - a[2]);
     notifier.show("리더보드 저장중...");
     showLeaderboard(lb);
     await kv.set("l", lb, (now, total) => {
@@ -919,7 +923,7 @@ async function saveScore() {
     notifier.show("점수가 리더보드에 들지 못했습니다.");
     return;
   }
-  lb.push([name, score]);
+  lb.push([name, time, score]);
   lb = lb.sort((a, b) => b[1] - a[1]);
   while (lb.length > 10) lb.pop();
   console.log("New leaderboard:", lb);
@@ -935,3 +939,20 @@ async function saveScore() {
 initializeLeaderboard();
 restartGame();
 fetchLeaderboard();
+
+const TARGET_FPS = 60;
+var interval = 1000 / TARGET_FPS; // Milliseconds per frame
+var lastTime = performance.now();
+function animate(currentTime: number) {
+  requestAnimationFrame(animate);
+
+  var deltaTime = currentTime - lastTime;
+
+  if (deltaTime > interval) {
+    lastTime = currentTime - (deltaTime % interval);
+    tick();
+  }
+}
+
+// Start the animation loop
+requestAnimationFrame(animate);
