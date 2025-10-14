@@ -960,13 +960,13 @@ fetchLeaderboard();
 const TARGET_FPS = 60;
 var interval = 1000 / TARGET_FPS; // Milliseconds per frame
 var lastTime = performance.now();
-function animate(currentTime: number) {
+function animate() {
   requestAnimationFrame(animate);
 
-  var deltaTime = currentTime - lastTime;
+  var deltaTime = Date.now() - lastTime;
 
   if (deltaTime > interval) {
-    lastTime = currentTime - (deltaTime % interval);
+    lastTime = Date.now() - (deltaTime % interval);
     tick();
   }
 }
