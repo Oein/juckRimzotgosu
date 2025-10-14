@@ -919,12 +919,12 @@ async function saveScore() {
     notifier.show("점수가 저장되었습니다!");
     return;
   }
-  if (lb[lb.length - 1][1] >= score) {
+  if (lb[lb.length - 1][2] >= score) {
     notifier.show("점수가 리더보드에 들지 못했습니다.");
     return;
   }
   lb.push([name, time, score]);
-  lb = lb.sort((a, b) => b[1] - a[1]);
+  lb = lb.sort((a, b) => b[2] - a[2]);
   while (lb.length > 10) lb.pop();
   console.log("New leaderboard:", lb);
   notifier.show("리더보드 저장중...");
