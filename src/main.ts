@@ -5,12 +5,15 @@ import Two from "two.js";
 let playerName: string | null = null;
 let lastFetchedLSCR: number | null = null;
 
+const SUPER_HARD_MODE =
+  new URL(location.href).searchParams.get("hard") === "true";
+
 // 전역 게임 상수 정의
 // 시간 관련 상수
 const ARROW_SPAWN_RATE = 300; // ms
 const ARROW_SPAWN_RATE_VARIATION = 10; // ms
 const ARROW_LIFETIME = 8000; // ms
-const EIGHT_DIRECTION_ATTACK_MIN_INTERVAL = 3000; // ms
+const EIGHT_DIRECTION_ATTACK_MIN_INTERVAL = SUPER_HARD_MODE ? 2000 : 3000; // ms
 const EIGHT_DIRECTION_ATTACK_MAX_INTERVAL = 3000; // ms
 
 // 화면 흔들림 상수
@@ -718,8 +721,8 @@ function tick() {
 
     // 난이도 증가 (시간이 지날수록 화살 더 자주 생성)
     config.arrowSpawnRate = Math.max(
-      100,
-      ARROW_SPAWN_RATE - (survivalTimeMs / 1000) * 15
+      SUPER_HARD_MODE ? 35 : 100,
+      ARROW_SPAWN_RATE - (survivalTimeMs / 1000) * (SUPER_HARD_MODE ? 23 : 15)
     );
   }
 }
@@ -887,6 +890,10 @@ async function fetchLeaderboard() {
 }
 
 async function saveScore(autoSave = false) {
+  if (SUPER_HARD_MODE) {
+    notifier.show("좆고수 모드에서는 점수 저장을 지원하지 않습니다.");
+    return;
+  }
   if (gameState.isPlaying)
     return notifier.show("게임 중에는 점수를 저장할 수 없습니다.");
   if (gameState.score <= 0)
