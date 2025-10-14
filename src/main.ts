@@ -839,6 +839,8 @@ function showLeaderboard(scores: [string, number, number][]) {
     return;
   }
 
+  lastFetchedLSCR = scores[scores.length - 1][2];
+
   scores.forEach(([name, time, score], index) => {
     const listItem = document.createElement("div");
     const idnx = document.createElement("div");
