@@ -401,7 +401,7 @@ function gameOver() {
     lastFetchedLSCR < gameState.tick
   ) {
     notifier.show("자동저장 시도중...");
-    saveScore();
+    saveScore(true);
   }
 }
 
@@ -886,7 +886,7 @@ async function fetchLeaderboard() {
   notifier.show("리더보드를 불러왔습니다!");
 }
 
-async function saveScore() {
+async function saveScore(autoSave = false) {
   if (gameState.isPlaying)
     return notifier.show("게임 중에는 점수를 저장할 수 없습니다.");
   if (gameState.score <= 0)
@@ -896,7 +896,7 @@ async function saveScore() {
   const score = gameState.tick;
   const time = gameState.timeMS;
   if (score <= 0) return;
-  const cf = confirm(`점수 ${score}점을 저장하시겠습니까?`);
+  const cf = autoSave || confirm(`점수 ${score}점을 저장하시겠습니까?`);
   if (!cf) return;
   const namePrompt = () => {
     if (playerName != null) return playerName;
