@@ -14,18 +14,13 @@ const ARROW_SPAWN_RATE = SUPER_HARD_MODE ? 175 : 300; // ms
 const ARROW_SPAWN_RATE_VARIATION = 10; // ms
 const ARROW_LIFETIME = 8000; // ms
 const EIGHT_DIRECTION_ATTACK_MIN_INTERVAL = SUPER_HARD_MODE ? 2000 : 3000; // ms
-const EIGHT_DIRECTION_ATTACK_MAX_INTERVAL = 3000; // ms
-
-// 화면 흔들림 상수
-const SHAKE_DURATION = 500; // 0.5초 동안 흔들림
-const SHAKE_INTENSITY = 15; // 흔들림 강도 (픽셀)
-const SHAKE_DECREASE_FACTOR = 0.85; // 흔들림 감소 계수
+const EIGHT_DIRECTION_ATTACK_MAX_INTERVAL = SUPER_HARD_MODE ? 3000 : 4000; // ms
 
 // 크기 관련 상수
-const FIXED_BOUNDARY_RADIUS = 300; // px
+const FIXED_BOUNDARY_RADIUS = SUPER_HARD_MODE ? 325 : 300; // px
 const PLAYER_RADIUS = 10; // px
-const REGULAR_ARROW_SIZE = 14; // px
-const EIGHT_DIRECTION_ARROW_SIZE = 12; // px
+const REGULAR_ARROW_SIZE = SUPER_HARD_MODE ? 11 : 14; // px
+const EIGHT_DIRECTION_ARROW_SIZE = SUPER_HARD_MODE ? 9 : 12; // px
 const BOUNDARY_OUTSIDE_FACTOR = 1.2; // 경계 바깥에서 시작하는 비율
 const BOUNDARY_CLEANUP_FACTOR = 1.5; // 경계 바깥으로 나간 화살을 제거하는 비율
 const ARROW_COLLISION_PADDING = 10; // 충돌 감지 시 추가 여백
@@ -34,7 +29,7 @@ const ARROW_COLLISION_PADDING = 10; // 충돌 감지 시 추가 여백
 const NUMBER_OF_DIRECTIONS = 8; // 8방향 화살 공격에서 사용하는 방향 수
 
 // 이동 관련 상수
-const PLAYER_MOVE_SPEED = 4.25 * 2; // px per frame
+const PLAYER_MOVE_SPEED = (SUPER_HARD_MODE ? 6 : 4.25) * 2; // px per frame
 const ARROW_SPEED = 5 * 2; // px per frame
 const EIGHT_DIRECTION_ARROW_SPEED = 3 * 2; // px per frame
 const DIAGONAL_MOVEMENT_FACTOR = 0.7071; // √2/2, 대각선 이동 시 속도 조정
@@ -162,6 +157,7 @@ const gameState = {
   score: ARROW_SPAWN_RATE,
   timeMS: 0,
   scoreSaved: false,
+  eiSpawnd: 0,
   tick: 0,
   arrows: [] as Arrow[],
   startTime: Date.now(),
@@ -179,18 +175,57 @@ const gameState = {
     s: false,
     d: false,
   },
-  // 화면 흔들림 관련 상태
-  shake: {
-    isShaking: false,
-    intensity: 0,
-    startShakeTime: 0,
-    offsetX: 0,
-    offsetY: 0,
-  },
 };
 
+let glbPercent = 0;
+function rainbowBreatheColor() {
+  // percent는 0에서 1 사이의 값
+  function hsvToRgb(h: number, s: number, v: number) {
+    let r: number = 0,
+      g: number = 0,
+      b: number = 0;
+    let i = Math.floor(h * 6);
+    let f = h * 6 - i;
+    let p = v * (1 - s);
+    let q = v * (1 - f * s);
+    let t = v * (1 - (1 - f) * s);
+    switch (i % 6) {
+      case 0:
+        (r = v), (g = t), (b = p);
+        break;
+      case 1:
+        (r = q), (g = v), (b = p);
+        break;
+      case 2:
+        (r = p), (g = v), (b = t);
+        break;
+      case 3:
+        (r = p), (g = q), (b = v);
+        break;
+      case 4:
+        (r = t), (g = p), (b = v);
+        break;
+      case 5:
+        (r = v), (g = p), (b = q);
+        break;
+    }
+    return {
+      r: Math.round(r * 255),
+      g: Math.round(g * 255),
+      b: Math.round(b * 255),
+    };
+  }
+  const hue = glbPercent; // 0에서 1 사이
+  glbPercent += 0.025;
+  if (glbPercent > 1) glbPercent = 0;
+  const saturation = 1; // 채도
+  const value = 1; // 명도
+  const rgb = hsvToRgb(hue, saturation, value);
+  return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+}
+
 class OnKV {
-  skv = "wk2b877b";
+  skv = SUPER_HARD_MODE ? "173ju12b" : "wk2b877b";
   get__(key: string) {
     return fetch(
       `https://keyvalue.immanuel.co/api/KeyVal/GetValue/${this.skv}/${key}`
@@ -270,9 +305,15 @@ function getRandomEightDirectionAttackDelay(): number {
 }
 
 // 8방위에서 동시에 화살 생성하기
-function createEightDirectionAttack() {
+function createEightDirectionAttack(doSomerandom = false) {
   const currentTime = Date.now();
-  const NOD = Math.random() < 0.2 ? 2 : Math.random() < 0.1 ? 1.5 : 1;
+  const NOD = SUPER_HARD_MODE
+    ? 1
+    : Math.random() < 0.2
+    ? 2
+    : Math.random() < 0.1
+    ? 1.5
+    : 1;
   if (NOD == 2) gameState.lastWasDouble = true;
   else gameState.lastWasDouble = false;
   const NODV = NUMBER_OF_DIRECTIONS * NOD;
@@ -285,12 +326,17 @@ function createEightDirectionAttack() {
     const startY = centerY + Math.sin(angle) * startDistance;
 
     // 플레이어 방향으로 향하는 벡터 계산
-    const dirX = player.position.x - startX; // 실제 플레이어 위치를 향해
-    const dirY = player.position.y - startY;
+    let dirX = player.position.x - startX; // 실제 플레이어 위치를 향해
+    let dirY = player.position.y - startY;
+    if (doSomerandom) {
+      dirX += Math.random() * 24 - 12;
+      dirY += Math.random() * 24 - 12;
+    }
     const distance = Math.sqrt(dirX * dirX + dirY * dirY);
 
-    const rnd =
-      NOD == 1 ? Math.random() * 0.4 + 0.8 : Math.random() * 0.4 + 0.2; // 속도에 약간의 랜덤성 추가 (0.8 ~ 1.2배)
+    let rnd = 1;
+    if (SUPER_HARD_MODE) rnd = Math.random() * 0.4 + 0.8;
+    else rnd = NOD == 1 ? Math.random() * 0.4 + 0.8 : Math.random() * 0.4 + 0.2; // 속도에 약간의 랜덤성 추가 (0.8 ~ 1.2배)
     const velocityX = (dirX / distance) * EIGHT_DIRECTION_ARROW_SPEED * rnd;
     const velocityY = (dirY / distance) * EIGHT_DIRECTION_ARROW_SPEED * rnd;
 
@@ -301,7 +347,9 @@ function createEightDirectionAttack() {
       EIGHT_DIRECTION_ARROW_SIZE,
       3
     );
-    arrowShape.fill = EIGHT_DIRECTION_ARROW_COLOR;
+    arrowShape.fill = SUPER_HARD_MODE
+      ? rainbowBreatheColor()
+      : EIGHT_DIRECTION_ARROW_COLOR;
     arrowShape.rotation = Math.atan2(velocityY, velocityX) + Math.PI / 2;
 
     gameState.arrows.push({
@@ -320,7 +368,7 @@ function createEightDirectionAttack() {
 }
 
 // 화살 생성 함수
-function createArrow(): Arrow {
+function createArrow(doSomerandom = false): Arrow {
   const currentTime = Date.now();
   // 랜덤한 각도에서 생성 (플레이어를 향해)
   const angle = Math.random() * Math.PI * 2;
@@ -330,8 +378,12 @@ function createArrow(): Arrow {
   const startY = centerY + Math.sin(angle) * startDistance;
 
   // 플레이어 방향으로 향하는 벡터 계산
-  const dirX = centerX - startX;
-  const dirY = centerY - startY;
+  let dirX = centerX - startX;
+  let dirY = centerY - startY;
+  if (doSomerandom) {
+    dirX += Math.random() * 24 - 12;
+    dirY += Math.random() * 24 - 12;
+  }
   const distance = Math.sqrt(dirX * dirX + dirY * dirY);
 
   const rnd = Math.random() * 0.6 + 0.8; // 속도에 약간의 랜덤성 추가 (0.8 ~ 1.4배)
@@ -340,7 +392,7 @@ function createArrow(): Arrow {
 
   // 화살 모양 만들기 (간단한 삼각형으로)
   const arrowShape = two.makePolygon(startX, startY, REGULAR_ARROW_SIZE, 3);
-  arrowShape.fill = ARROW_COLOR;
+  arrowShape.fill = SUPER_HARD_MODE ? rainbowBreatheColor() : ARROW_COLOR;
   arrowShape.rotation = Math.atan2(velocityY, velocityX) + Math.PI / 2;
 
   return {
@@ -390,14 +442,6 @@ function gameOver() {
   // 중앙 큰 점수 숨기기
   bigScoreText.visible = false;
 
-  // 모든 화살 제거
-  gameState.arrows.forEach((arrow) => {
-    if (arrow.shape && (arrow.shape as any).parent) {
-      (arrow.shape as any).parent.remove(arrow.shape);
-    }
-  });
-  gameState.arrows = [];
-
   if (
     playerName != null &&
     lastFetchedLSCR != null &&
@@ -408,35 +452,21 @@ function gameOver() {
   }
 }
 
-// 화면 흔들기 함수
-function startScreenShake() {
-  if (!gameState.isPlaying) return;
-
-  gameState.shake.isShaking = true;
-  gameState.shake.intensity = SHAKE_INTENSITY;
-  gameState.shake.startShakeTime = Date.now();
-}
-
 // 게임 재시작
 function restartGame() {
-  startScreenShake();
   gameState.scoreSaved = false;
   gameState.isPlaying = true;
   gameState.score = 0;
   gameState.tick = 0;
+  gameState.eiSpawnd = 0;
   gameState.startTime = Date.now();
   gameState.lastArrowTime = 0;
   gameState.lastWasDouble = false;
-  gameState.lastEightDirectionAttackTime = Date.now() - 1000;
+  gameState.lastEightDirectionAttackTime = SUPER_HARD_MODE
+    ? Date.now() - 2200
+    : Date.now() - 1000;
   gameState.nextEightDirectionAttackDelay =
     getRandomEightDirectionAttackDelay();
-
-  // 흔들림 상태 초기화
-  gameState.shake.isShaking = false;
-  gameState.shake.intensity = 0;
-  gameState.shake.startShakeTime = 0;
-  gameState.shake.offsetX = 0;
-  gameState.shake.offsetY = 0;
 
   // 플레이어 위치 초기화
   player.position.x = centerX;
@@ -452,7 +482,7 @@ function restartGame() {
   timeText.value =
     "시간: 0초" +
     (playerName == null ? "" : ` (${playerName})`) +
-    (SUPER_HARD_MODE ? " (좆고수 모드2)" : "");
+    (SUPER_HARD_MODE ? " (좆고수 모드)" : "");
 
   // 중앙 큰 점수 초기화 및 표시
   bigScoreText.value = "0";
@@ -463,6 +493,13 @@ function restartGame() {
   if (drawer) {
     drawer.classList.remove("open");
   }
+
+  gameState.arrows.forEach((arrow) => {
+    if (arrow.shape && (arrow.shape as any).parent) {
+      (arrow.shape as any).parent.remove(arrow.shape);
+    }
+  });
+  gameState.arrows = [];
 }
 
 // 화면 리사이징 처리 함수
@@ -554,9 +591,6 @@ window.addEventListener("keydown", (e) => {
         restartGame();
       }
       break;
-    case "x": // X키: 화면 흔들림 효과 트리거
-      startScreenShake();
-      break;
   }
 });
 
@@ -591,32 +625,6 @@ function tick() {
   if (!gameState.isPlaying) return;
   const currentTime = Date.now();
   gameState.tick++;
-
-  // 화면 흔들림 처리
-  let shakeOffsetX = 0;
-  let shakeOffsetY = 0;
-
-  if (gameState.shake.isShaking) {
-    const elapsedShakeTime = currentTime - gameState.shake.startShakeTime;
-
-    if (elapsedShakeTime < SHAKE_DURATION) {
-      // 흔들림 효과 적용
-      gameState.shake.intensity *= SHAKE_DECREASE_FACTOR;
-
-      shakeOffsetX = (Math.random() * 2 - 1) * gameState.shake.intensity;
-      shakeOffsetY = (Math.random() * 2 - 1) * gameState.shake.intensity;
-
-      // 모든 요소를 움직여 화면 흔들림 구현
-      two.scene.position.x = shakeOffsetX;
-      two.scene.position.y = shakeOffsetY;
-    } else {
-      // 흔들림 종료
-      gameState.shake.isShaking = false;
-      gameState.shake.intensity = 0;
-      two.scene.position.x = 0;
-      two.scene.position.y = 0;
-    }
-  }
 
   // 플레이어 움직임
   let dx = 0;
@@ -656,7 +664,12 @@ function tick() {
       ARROW_SPAWN_RATE_VARIATION / 2
   ) {
     gameState.lastArrowTime = currentTime;
-    gameState.arrows.push(createArrow());
+    if (SUPER_HARD_MODE) {
+      gameState.arrows.push(createArrow());
+      gameState.arrows.push(createArrow(true));
+    } else {
+      gameState.arrows.push(createArrow());
+    }
   }
 
   // 8방위 화살 공격 (2~4초 간격으로)
@@ -664,8 +677,8 @@ function tick() {
     currentTime - gameState.lastEightDirectionAttackTime >
     gameState.nextEightDirectionAttackDelay
   ) {
-    startScreenShake();
-    createEightDirectionAttack();
+    createEightDirectionAttack(gameState.eiSpawnd % 3 == 2);
+    gameState.eiSpawnd++;
   }
 
   // 화살 이동 및 충돌 확인
@@ -718,7 +731,7 @@ function tick() {
     timeText.value =
       `시간: ${minutes > 0 ? `${minutes}분 ` : ""}${seconds.toFixed(2)}초` +
       (playerName == null ? "" : ` (${playerName})`) +
-      (SUPER_HARD_MODE ? " (좆고수 모드2)" : "");
+      (SUPER_HARD_MODE ? " (좆고수 모드)" : "");
 
     // 중앙 큰 점수 텍스트 업데이트
     bigScoreText.value = `${gameState.tick}`;
@@ -807,6 +820,10 @@ function initializeLeaderboard() {
       drawer.classList.remove("open");
     }
   });
+
+  const title = document.getElementById("lbd-title") as HTMLElement;
+  if (title)
+    title.innerText = SUPER_HARD_MODE ? "리더보드(좆고수 모드)" : "리더보드";
 }
 
 function showLeaderboard(scores: [string, number, number][]) {
@@ -894,10 +911,6 @@ async function fetchLeaderboard() {
 }
 
 async function saveScore(autoSave = false) {
-  if (SUPER_HARD_MODE) {
-    notifier.show("좆고수 모드에서는 점수 저장을 지원하지 않습니다.");
-    return;
-  }
   if (gameState.isPlaying)
     return notifier.show("게임 중에는 점수를 저장할 수 없습니다.");
   if (gameState.score <= 0)
@@ -984,3 +997,43 @@ function animate() {
 
 // Start the animation loop
 requestAnimationFrame(animate);
+
+function createModeChangeButton() {
+  const btn = document.createElement("button");
+  btn.id = "mode-change-button";
+  btn.style.position = "fixed";
+  btn.style.top = "20px";
+  btn.style.right = "20px";
+  btn.style.zIndex = "1000";
+  btn.style.padding = "10px 20px";
+  btn.style.backgroundColor = "#2288dd";
+  btn.style.color = "white";
+  btn.style.border = "none";
+  btn.style.borderRadius = "5px";
+  btn.style.cursor = "pointer";
+  btn.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+  btn.innerText = !SUPER_HARD_MODE ? "좆고수 모드로" : "일반 모드로";
+
+  btn.addEventListener("click", () => {
+    if (!gameState.isPlaying) {
+      const cf = confirm(
+        `현재 ${SUPER_HARD_MODE ? "좆고수 모드" : "일반 모드"}입니다. ${
+          SUPER_HARD_MODE ? "일반 모드로" : "좆고수 모드로"
+        } 변경하시겠습니까?`
+      );
+      if (cf) {
+        const nurl = new URL(location.href);
+        if (SUPER_HARD_MODE) {
+          nurl.searchParams.delete("hard");
+        } else {
+          nurl.searchParams.set("hard", "true");
+        }
+        location.href = nurl.toString();
+      }
+    }
+  });
+
+  document.body.appendChild(btn);
+}
+
+createModeChangeButton();
