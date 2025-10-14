@@ -446,7 +446,7 @@ function restartGame() {
   saveText.visible = false;
 
   // 시간 초기화
-  timeText.value = "시간: 0초";
+  timeText.value = "시간: 0초" + (playerName == null ? "" : ` (${playerName})`);
 
   // 중앙 큰 점수 초기화 및 표시
   bigScoreText.value = "0";
@@ -709,9 +709,9 @@ function tick() {
     const seconds = (survivalTimeMs % 60000) / 1000;
 
     // 상단 시간 텍스트 업데이트
-    timeText.value = `시간: ${
-      minutes > 0 ? `${minutes}분 ` : ""
-    }${seconds.toFixed(2)}초`;
+    timeText.value =
+      `시간: ${minutes > 0 ? `${minutes}분 ` : ""}${seconds.toFixed(2)}초` +
+      (playerName == null ? "" : ` (${playerName})`);
 
     // 중앙 큰 점수 텍스트 업데이트
     bigScoreText.value = `${gameState.tick}`;
