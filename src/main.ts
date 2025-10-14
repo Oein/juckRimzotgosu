@@ -449,6 +449,7 @@ function restartGame() {
 
 // 화면 리사이징 처리 함수
 function handleResize() {
+  location.reload();
   // 화면 크기 업데이트
   config.width = window.innerWidth;
   config.height = window.innerHeight;
