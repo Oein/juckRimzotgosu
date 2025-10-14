@@ -364,7 +364,7 @@ function gameOver() {
   // 점수 계산 (살아남은 ms / 2 기준)
   const survivalTimeMs = Date.now() - gameState.startTime;
   gameState.timeMS = survivalTimeMs;
-  gameState.score = Math.floor(survivalTimeMs / 20);
+  gameState.score = gameState.tick;
 
   // 생존 시간 계산
   const survivalTimeSec = Math.floor(survivalTimeMs / 1000);
@@ -376,7 +376,7 @@ function gameOver() {
 
   // 게임 오버 UI 표시
   gameOverText.visible = true;
-  finalScoreText.value = `점수: ${gameState.score}점 (생존 시간: ${timeString})`;
+  finalScoreText.value = `점수: ${gameState.tick}점 (생존 시간: ${timeString})`;
   finalScoreText.visible = true;
   restartText.visible = true;
   saveText.visible = true;
