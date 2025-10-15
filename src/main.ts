@@ -8,6 +8,8 @@ let lastFetchedLSCR: number | null = null;
 const SUPER_HARD_MODE =
   new URL(location.href).searchParams.get("hard") === "true";
 
+if (SUPER_HARD_MODE) document.title = "죽림좆고수";
+
 // 전역 게임 상수 정의
 // 시간 관련 상수
 const ARROW_SPAWN_RATE = SUPER_HARD_MODE ? 175 : 300; // ms
@@ -1101,7 +1103,7 @@ createModeChangeButton();
 
 // on canvas pointer down
 let touchDown = false;
-const MINMOVE = 5;
+const MINMOVE = PLAYER_MOVE_SPEED * DIAGONAL_MOVEMENT_FACTOR;
 two.renderer.domElement.addEventListener("pointerdown", (e: PointerEvent) => {
   if (!gameState.isPlaying) {
     restartGame();
