@@ -1112,14 +1112,18 @@ two.renderer.domElement.addEventListener("pointerdown", (e: PointerEvent) => {
   const rect = two.renderer.domElement.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
-
-  console.log("Pointer down at:", x, y);
+  console.log("Pointer move at:", x, y);
   const dx = x - player.position.x;
   const dy = y - player.position.y;
+  gameState.touchStates.up = false;
+  gameState.touchStates.down = false;
+  gameState.touchStates.left = false;
+  gameState.touchStates.right = false;
   if (dy > MINMOVE) gameState.touchStates.down = true;
   if (dy < -MINMOVE) gameState.touchStates.up = true;
   if (dx > MINMOVE) gameState.touchStates.right = true;
   if (dx < -MINMOVE) gameState.touchStates.left = true;
+
   touchDown = true;
 });
 
