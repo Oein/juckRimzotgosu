@@ -175,6 +175,12 @@ const gameState = {
     s: false,
     d: false,
   },
+  touchStates: {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+  },
 };
 
 let glbPercent = 0;
@@ -450,10 +456,29 @@ function gameOver() {
     notifier.show("자동저장 시도중...");
     saveScore(true);
   }
+
+  try {
+    // show save button
+    const saveButton = document.getElementById("save-record-button");
+    if (saveButton) {
+      saveButton.style.opacity = "1";
+      saveButton.style.pointerEvents = "auto";
+      saveButton.style.cursor = "pointer";
+    }
+  } catch (e) {}
 }
 
 // 게임 재시작
 function restartGame() {
+  try {
+    // hide save button
+    const saveButton = document.getElementById("save-record-button");
+    if (saveButton) {
+      saveButton.style.opacity = "0.3";
+      saveButton.style.pointerEvents = "none";
+      saveButton.style.cursor = "not-allowed";
+    }
+  } catch (e) {}
   gameState.scoreSaved = false;
   gameState.isPlaying = true;
   gameState.score = 0;
@@ -504,7 +529,6 @@ function restartGame() {
 
 // 화면 리사이징 처리 함수
 function handleResize() {
-  location.reload();
   // 화면 크기 업데이트
   config.width = window.innerWidth;
   config.height = window.innerHeight;
@@ -630,10 +654,14 @@ function tick() {
   let dx = 0;
   let dy = 0;
 
-  if (gameState.keyStates.up) dy -= PLAYER_MOVE_SPEED;
-  if (gameState.keyStates.down) dy += PLAYER_MOVE_SPEED;
-  if (gameState.keyStates.left) dx -= PLAYER_MOVE_SPEED;
-  if (gameState.keyStates.right) dx += PLAYER_MOVE_SPEED;
+  if (gameState.keyStates.up || gameState.touchStates.up)
+    dy -= PLAYER_MOVE_SPEED;
+  if (gameState.keyStates.down || gameState.touchStates.down)
+    dy += PLAYER_MOVE_SPEED;
+  if (gameState.keyStates.left || gameState.touchStates.left)
+    dx -= PLAYER_MOVE_SPEED;
+  if (gameState.keyStates.right || gameState.touchStates.right)
+    dx += PLAYER_MOVE_SPEED;
 
   // 대각선 이동 시 속도 정규화
   if (dx !== 0 && dy !== 0) {
@@ -763,7 +791,7 @@ class NotificationManager {
     document.body.appendChild(this.container);
   }
 
-  show(message: string, duration = 3000) {
+  show(message: string, duration = 2000) {
     const notification = document.createElement("div");
     notification.innerText = message;
     notification.style.background = "rgba(0, 0, 0, 0.7)";
@@ -1000,13 +1028,21 @@ function animate() {
 // Start the animation loop
 requestAnimationFrame(animate);
 
+const buttons = document.createElement("div");
+buttons.id = "buttons";
+buttons.style.position = "fixed";
+buttons.style.top = "20px";
+buttons.style.right = "20px";
+buttons.style.zIndex = "1000";
+buttons.style.display = "flex";
+buttons.style.flexDirection = "row";
+buttons.style.alignItems = "center";
+buttons.style.gap = "10px";
+document.body.appendChild(buttons);
+
 function createModeChangeButton() {
   const btn = document.createElement("button");
   btn.id = "mode-change-button";
-  btn.style.position = "fixed";
-  btn.style.top = "20px";
-  btn.style.right = "20px";
-  btn.style.zIndex = "1000";
   btn.style.padding = "10px 20px";
   btn.style.backgroundColor = "#2288dd";
   btn.style.color = "white";
@@ -1035,7 +1071,84 @@ function createModeChangeButton() {
     }
   });
 
-  document.body.appendChild(btn);
+  buttons.appendChild(btn);
 }
 
+function saveRecordButton() {
+  const btn = document.createElement("button");
+  btn.id = "save-record-button";
+  btn.style.padding = "10px 20px";
+  btn.style.backgroundColor = "#22aa22";
+  btn.style.color = "white";
+  btn.style.border = "none";
+  btn.style.borderRadius = "5px";
+  btn.style.cursor = "pointer";
+  btn.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+  btn.style.marginLeft = "10px";
+  btn.innerText = "점수 저장";
+
+  btn.addEventListener("click", () => {
+    if (!gameState.isPlaying) {
+      saveScore();
+    }
+  });
+
+  buttons.appendChild(btn);
+}
+
+saveRecordButton();
 createModeChangeButton();
+
+// on canvas pointer down
+let touchDown = false;
+const MINMOVE = 5;
+two.renderer.domElement.addEventListener("pointerdown", (e: PointerEvent) => {
+  if (!gameState.isPlaying) {
+    restartGame();
+  }
+
+  const rect = two.renderer.domElement.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  console.log("Pointer down at:", x, y);
+  const dx = x - player.position.x;
+  const dy = y - player.position.y;
+  if (dy > MINMOVE) gameState.touchStates.down = true;
+  if (dy < -MINMOVE) gameState.touchStates.up = true;
+  if (dx > MINMOVE) gameState.touchStates.right = true;
+  if (dx < -MINMOVE) gameState.touchStates.left = true;
+  touchDown = true;
+});
+
+two.renderer.domElement.addEventListener("pointermove", (e: PointerEvent) => {
+  if (!touchDown) return;
+  const rect = two.renderer.domElement.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  console.log("Pointer move at:", x, y);
+  const dx = x - player.position.x;
+  const dy = y - player.position.y;
+  gameState.touchStates.up = false;
+  gameState.touchStates.down = false;
+  gameState.touchStates.left = false;
+  gameState.touchStates.right = false;
+  if (dy > MINMOVE) gameState.touchStates.down = true;
+  if (dy < -MINMOVE) gameState.touchStates.up = true;
+  if (dx > MINMOVE) gameState.touchStates.right = true;
+  if (dx < -MINMOVE) gameState.touchStates.left = true;
+});
+
+two.renderer.domElement.addEventListener("pointerup", () => {});
+
+window.addEventListener("pointerup", (e) => {
+  const rect = two.renderer.domElement.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  console.log("Pointer up at:", x, y);
+  touchDown = false;
+  gameState.touchStates.up = false;
+  gameState.touchStates.down = false;
+  gameState.touchStates.left = false;
+  gameState.touchStates.right = false;
+});

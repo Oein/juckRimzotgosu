@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  base: "/juckRimzotgosu/",
+  base: "./",
   // Add any other Vite configurations here if needed
 });
