@@ -1,14 +1,23 @@
 import type { Path } from "two.js/src/path";
 import "./style.css";
 import Two from "two.js";
+import notifier from "./notifier";
+import Leaderboard from "./leaderboardSystem";
 
 let playerName: string | null = null;
-let lastFetchedLSCR: number | null = null;
 
 const SUPER_HARD_MODE =
   new URL(location.href).searchParams.get("hard") === "true";
 
 if (SUPER_HARD_MODE) document.title = "죽림좆고수";
+
+const LDBoard = Leaderboard({
+  getGameRunning() {
+    return false;
+  },
+  kvAPIKey: SUPER_HARD_MODE ? "jrzgs-hard" : "jrzgs",
+  notifier: notifier,
+});
 
 // 전역 게임 상수 정의
 // 시간 관련 상수
@@ -232,75 +241,6 @@ function rainbowBreatheColor() {
   return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
 }
 
-class OnKV {
-  skv = SUPER_HARD_MODE ? "173ju12b" : "wk2b877b";
-  get__(key: string) {
-    return fetch(
-      `https://keyvalue.immanuel.co/api/KeyVal/GetValue/${this.skv}/${key}`
-    )
-      .then((res) => res.text())
-      .then((res) => JSON.parse(res));
-  }
-  set__(key: string, value: any) {
-    return fetch(
-      `https://keyvalue.immanuel.co/api/KeyVal/UpdateValue/${this.skv}/${key}/${value}`,
-      {
-        method: "POST",
-      }
-    );
-  }
-  async get(
-    key: string,
-    progressSender?: (now: number, total: number) => void
-  ) {
-    // it has 60 chars limit
-    // so it should be saved as parts
-    const parts = await this.get__(key + "_l").then((res) => {
-      const length = parseInt(res, 10);
-      const parts = [];
-      for (let i = 0; i < length; i++) {
-        parts.push(
-          new Promise<any>((resolve) => {
-            this.get__(key + "_" + i).then((res) => {
-              resolve(res);
-              if (progressSender) progressSender(i + 1, length);
-            });
-          })
-        );
-      }
-      console.log(res, length, parts);
-      return Promise.all(parts);
-    });
-    console.log(parts.join(""), parts);
-    return JSON.parse(decodeURIComponent(atob(parts.join(""))));
-  }
-  async set(
-    key: string,
-    value: any,
-    progressSender?: (now: number, total: number) => void
-  ) {
-    const toSave = btoa(encodeURIComponent(JSON.stringify(value)));
-    const parts = [];
-    const SPILIT_BY = 50;
-    for (let i = 0; i < toSave.length; i += SPILIT_BY) {
-      parts.push(toSave.substring(i, i + SPILIT_BY));
-    }
-    console.log("Saving of", key, "in", parts.length, "parts");
-    await this.set__(key + "_l", parts.length);
-    let sent = 0;
-    await Promise.all(
-      parts.map((part, i) => {
-        this.set__(key + "_" + i, part);
-        sent++;
-        if (progressSender) progressSender(sent, parts.length);
-        console.log("Saved part of", key, i + 1, " / ", parts.length);
-      })
-    );
-  }
-}
-const kv = new OnKV();
-(window as any).kv = kv;
-
 // 랜덤 8방위 공격 딜레이 생성
 function getRandomEightDirectionAttackDelay(): number {
   return (
@@ -450,11 +390,7 @@ function gameOver() {
   // 중앙 큰 점수 숨기기
   bigScoreText.visible = false;
 
-  if (
-    playerName != null &&
-    lastFetchedLSCR != null &&
-    lastFetchedLSCR < gameState.tick
-  ) {
+  if (playerName != null) {
     notifier.show("자동저장 시도중...");
     saveScore(true);
   }
@@ -782,166 +718,6 @@ window.addEventListener("blur", () => {
   }
 });
 
-class NotificationManager {
-  container: HTMLElement;
-  constructor() {
-    this.container = document.createElement("div");
-    this.container.style.position = "fixed";
-    this.container.style.bottom = "20px";
-    this.container.style.right = "20px";
-    this.container.style.zIndex = "1000";
-    document.body.appendChild(this.container);
-  }
-
-  show(message: string, duration = 2000) {
-    const notification = document.createElement("div");
-    notification.innerText = message;
-    notification.style.background = "rgba(0, 0, 0, 0.7)";
-    notification.style.color = "white";
-    notification.style.padding = "10px 20px";
-    notification.style.marginTop = "10px";
-    notification.style.borderRadius = "5px";
-    notification.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
-    notification.style.opacity = "0";
-    notification.style.transform = "translateY(10px)";
-    notification.style.minWidth = "200px";
-    notification.style.maxHeight = "0px";
-    notification.style.transition = "all 0.3s ease";
-
-    this.container.appendChild(notification);
-
-    // Fade in
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        notification.style.opacity = "1";
-        notification.style.transform = "translateY(0)";
-        notification.style.maxHeight = "calc(1.2em + 20px)";
-      });
-    }, 10);
-
-    // Fade out and remove after duration
-    setTimeout(() => {
-      notification.style.opacity = "0";
-      notification.style.transform = "translateX(10px)";
-      notification.addEventListener("transitionend", () => {
-        notification.remove();
-      });
-    }, duration);
-  }
-}
-
-const notifier = new NotificationManager();
-(window as any).notifier = notifier;
-
-// 리더보드 드로어 초기화 및 제어
-function initializeLeaderboard() {
-  const drawer = document.getElementById("leaderboard-drawer") as HTMLElement;
-  const toggleButton = document.getElementById("drawer-toggle") as HTMLElement;
-
-  // 토글 버튼 클릭 이벤트
-  toggleButton.addEventListener("click", () => {
-    if (gameState.isPlaying) return drawer.classList.remove("open");
-    drawer.classList.toggle("open");
-  });
-
-  // ESC 키로 드로어 닫기
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && drawer.classList.contains("open")) {
-      drawer.classList.remove("open");
-    }
-  });
-
-  const title = document.getElementById("lbd-title") as HTMLElement;
-  if (title)
-    title.innerText = SUPER_HARD_MODE ? "리더보드(좆고수 모드)" : "리더보드";
-}
-
-function showLeaderboard(scores: [string, number, number][]) {
-  const list = document.getElementById("leaderboard-list") as HTMLElement;
-  list.innerHTML = ""; // 기존 내용 지우기
-
-  console.log("Showing leaderboard:", scores);
-  if (scores.length === 0) {
-    const noDataItem = document.createElement("div");
-    noDataItem.innerText = "저장된 점수가 없습니다.";
-    noDataItem.style.textAlign = "center";
-    list.appendChild(noDataItem);
-    return;
-  }
-
-  lastFetchedLSCR = scores[scores.length - 1][2];
-
-  scores.forEach(([name, time, score], index) => {
-    const listItem = document.createElement("div");
-    const idnx = document.createElement("div");
-    const nm = document.createElement("div");
-    const scr = document.createElement("div");
-    listItem.style.display = "flex";
-    listItem.style.padding = "8px 0px";
-    listItem.style.borderBottom = "1px solid #eee";
-    if (index == scores.length - 1) {
-      listItem.style.borderBottom = "none";
-    }
-    idnx.style.width = "2rem";
-    idnx.style.marginRight = "10px";
-    idnx.style.textAlign = "right";
-    nm.style.flex = "1";
-    scr.style.textAlign = "right";
-    scr.style.display = "flex";
-    scr.style.justifyContent = "flex-end";
-    scr.style.alignItems = "flex-end";
-    listItem.appendChild(idnx);
-    listItem.appendChild(nm);
-    listItem.appendChild(scr);
-    idnx.innerText = `${index + 1}.`;
-    nm.innerText = name;
-
-    const scrSpan = document.createElement("span");
-    const scrSpan2 = document.createElement("span");
-    scrSpan.innerText = `${Math.floor(score)}점`;
-    scrSpan2.style.color = "#888888a0";
-    scrSpan2.style.fontSize = "0.8em";
-    scrSpan2.style.fontWeight = "normal";
-    scrSpan2.style.marginLeft = "4px";
-    scrSpan2.innerText = `(${(time / 1000).toFixed(2)}s)`;
-    scr.appendChild(scrSpan);
-    scr.appendChild(scrSpan2);
-
-    list.appendChild(listItem);
-
-    if (index <= 2) {
-      idnx.style.fontWeight = "bold";
-      nm.style.fontWeight = "bold";
-      scr.style.fontWeight = "bold";
-    }
-
-    if (index === 0) {
-      idnx.innerText = "🥇";
-      nm.style.color = "#ffb400";
-      scr.style.color = "#ffb400";
-    } else if (index === 1) {
-      idnx.innerText = "🥈";
-      nm.style.color = "#c0c0c0";
-      scr.style.color = "#c0c0c0";
-    } else if (index === 2) {
-      idnx.innerText = "🥉";
-      nm.style.color = "#cd7f32";
-      scr.style.color = "#cd7f32";
-    }
-  });
-}
-
-async function fetchLeaderboard() {
-  notifier.show("리더보드 불러오는중...");
-  const lb: [string, number, number][] = await kv.get("l", (now, total) => {
-    notifier.show(`리더보드 불러오는중... ${now} / ${total}`, 500);
-  });
-  console.log("Fetched leaderboard:", lb);
-  showLeaderboard(lb);
-  lastFetchedLSCR = lb[lb.length - 1][2];
-  notifier.show("리더보드를 불러왔습니다!");
-}
-
 async function saveScore(autoSave = false) {
   if (gameState.isPlaying)
     return notifier.show("게임 중에는 점수를 저장할 수 없습니다.");
@@ -976,42 +752,11 @@ async function saveScore(autoSave = false) {
   playerName = name;
 
   console.log("Saving score:", score, time, name);
-  notifier.show("리더보드 가저오는중...");
-  let lb: [string, number, number][] = await kv.get("l", (now, total) => {
-    notifier.show(`리더보드 불러오는중... ${now} / ${total}`, 100);
-  });
-  if (lb.length < 10) {
-    lb.push([name, time, score]);
-    lb = lb.sort((a, b) => b[2] - a[2]);
-    notifier.show("리더보드 저장중...");
-    showLeaderboard(lb);
-    await kv.set("l", lb, (now, total) => {
-      notifier.show(`리더보드 저장중... ${now} / ${total}`, 500);
-    });
-    notifier.show("점수가 저장되었습니다!");
-    return;
-  }
-  lastFetchedLSCR = lb[lb.length - 1][2];
-  if (lb[lb.length - 1][2] >= score) {
-    notifier.show("점수가 리더보드에 들지 못했습니다.");
-    return;
-  }
-  lb.push([name, time, score]);
-  lb = lb.sort((a, b) => b[2] - a[2]);
-  while (lb.length > 10) lb.pop();
-  console.log("New leaderboard:", lb);
-  notifier.show("리더보드 저장중...");
-  await kv.set("l", lb, (now, total) => {
-    notifier.show(`리더보드 저장중... ${now} / ${total}`, 500);
-  });
-  notifier.show("점수가 저장되었습니다!");
-  showLeaderboard(lb);
+  LDBoard.saveScore(playerName, score, (time / 1000).toFixed(2) + "s");
 }
 
 // 리더보드 초기화 및 게임 시작
-initializeLeaderboard();
 restartGame();
-fetchLeaderboard();
 
 const TARGET_FPS = 60;
 var interval = 1000 / TARGET_FPS; // Milliseconds per frame
